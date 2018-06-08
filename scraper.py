@@ -42,6 +42,7 @@ class ICOPenaltyScraper():
     XPATH_LIST_PAGE_LINK = '//a[contains(@href, "/action-weve-taken/enforcement/")]'  # noqa
     XPATH_PDF_LINK = "//a[contains(@href, '/media/action-weve-taken') and contains(@href, '.pdf')]"  # noqa
     XPATH_DATE = "//dt[contains(text(), 'Date')]/following-sibling::dd[1]"  # noqa
+    XPATH_DESCRIPTION = "//div[contains(@class, 'article-content')]/p[1]"
 
     def __init__(self, output_dir, requests_like_object):
         self.output_dir = output_dir
@@ -84,6 +85,7 @@ class ICOPenaltyScraper():
             'type': self._parse_type(pdf_url),
             'date': self._parse_date(root),
             'title': self._parse_title(root),
+            'description': self._parse_description(root)
         }
 
     def _parse_pdf_url(self, lxml_root, url):
@@ -103,6 +105,11 @@ class ICOPenaltyScraper():
         h1s = lxml_root.xpath('//h1')
         if len(h1s) == 1:
             return h1s[0].text_content().strip()
+
+    def _parse_description(self, lxml_root):
+        ps = lxml_root.xpath(self.XPATH_DESCRIPTION)
+        if len(ps) == 1:
+            return ps[0].text_content().strip()
 
     def _parse_date(self, lxml_root):
         def parse(date_string):
