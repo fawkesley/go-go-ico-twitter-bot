@@ -7,6 +7,7 @@ import sys
 import re
 
 from os.path import abspath, dirname, join as pjoin
+from pprint import pprint
 
 import dataset
 import requests_cache
@@ -32,6 +33,7 @@ def main(output_dir=None):
     table = db['data']
 
     for row in scraper.run():
+        pprint(row)
         table.upsert(row, ['url'])
 
 
