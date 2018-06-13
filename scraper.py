@@ -66,6 +66,8 @@ def main(output_dir=None):
     if failed_tweets:
         logging.error('Failed to sent {} tweets'.format(failed_tweets))
         sys.exit(1)
+    else:
+        logging.info('Done.')
 
 
 class Tweeter():
