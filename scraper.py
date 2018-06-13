@@ -6,7 +6,6 @@ import os
 import sys
 import re
 
-from os.path import abspath, dirname, join as pjoin
 from pprint import pprint
 
 import dataset
@@ -26,7 +25,6 @@ class RequestsWrapper():
 
 def main(output_dir=None):
     logging.basicConfig(level=logging.DEBUG)
-    output_dir = output_dir or abspath(pjoin(dirname(__file__), 'output'))
     scraper = ICOPenaltyScraper(output_dir, RequestsWrapper())
 
     db = dataset.connect('sqlite:///data.sqlite')
@@ -46,14 +44,12 @@ class ICOPenaltyScraper():
     XPATH_DATE = "//dt[contains(text(), 'Date')]/following-sibling::dd[1]"  # noqa
     XPATH_DESCRIPTION = "//div[contains(@class, 'article-content')]/p"
 
-    def __init__(self, output_dir, requests_like_object):
-        self.output_dir = output_dir
+    def __init__(self, requests_like_object):
         self.http = requests_like_object
         self.penalty_pages = None
         self.actions = None
 
     def run(self):
-        self.mkdir_p(pjoin(self.output_dir, 'pdfs'))
         self.parse_list_page()
 
         for url in self.penalty_pages:
