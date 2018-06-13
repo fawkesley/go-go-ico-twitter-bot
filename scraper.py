@@ -42,9 +42,9 @@ class ICOPenaltyScraper():
     LIST_URL = '{}/action-weve-taken/enforcement/'.format(BASE_URL)  # noqa
 
     XPATH_LIST_PAGE_LINK = '//a[contains(@href, "/action-weve-taken/enforcement/")]'  # noqa
-    XPATH_PDF_LINK = "//a[contains(@href, '/media/action-weve-taken') and contains(@href, '.pdf')]"  # noqa
+    XPATH_PDF_LINK = "//div[contains(@class, 'resultlist')]//a[contains(@href, '/media/action-weve-taken') and contains(@href, '.pdf')]"  # noqa
     XPATH_DATE = "//dt[contains(text(), 'Date')]/following-sibling::dd[1]"  # noqa
-    XPATH_DESCRIPTION = "//div[contains(@class, 'article-content')]/p[1]"
+    XPATH_DESCRIPTION = "//div[contains(@class, 'article-content')]/p"
 
     def __init__(self, output_dir, requests_like_object):
         self.output_dir = output_dir
@@ -72,6 +72,11 @@ class ICOPenaltyScraper():
             self._expand_href(a.attrib['href']) for a in root.xpath(
                 self.XPATH_LIST_PAGE_LINK)
         ]
+        self.penalty_pages = list(filter(
+            lambda url: url != self.LIST_URL,
+            self.penalty_pages))
+
+        pprint(self.penalty_pages)
 
     def parse_extra_data_from_penalty_page(self, url):
         """
@@ -110,8 +115,10 @@ class ICOPenaltyScraper():
 
     def _parse_description(self, lxml_root):
         ps = lxml_root.xpath(self.XPATH_DESCRIPTION)
-        if len(ps) == 1:
+        if len(ps) >= 1:
             return ps[0].text_content().strip()
+        else:
+            raise RuntimeError(len(ps))
 
     def _parse_date(self, lxml_root):
         def parse(date_string):
