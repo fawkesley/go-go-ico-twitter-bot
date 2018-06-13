@@ -2,3 +2,4 @@ dataset
 lxml
 requests
 requests_cache
+tweepy

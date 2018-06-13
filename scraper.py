@@ -10,6 +10,7 @@ from pprint import pprint
 
 import dataset
 import requests_cache
+import tweepy
 import lxml.html
 
 ONE_HOUR = datetime.timedelta(hours=1)
@@ -44,13 +45,14 @@ def main(output_dir=None):
     db.commit()
 
     for untweeted in table.find(tweet_sent=False, order_by='date'):
-        print('Tweeting {}'.format(untweeted['url']))
+        logging.info('Tweeting {}'.format(untweeted['url']))
         tweeter = Tweeter(**untweeted)
 
         db.begin()
         try:
             tweeter.tweet()
-        except Exception:
+        except Exception as e:
+            logging.exception(e)
             db.rollback()
             continue
         else:
@@ -71,6 +73,17 @@ class Tweeter():
         self._description = description
         self._pdf_url = pdf_url
 
+        auth = tweepy.OAuthHandler(
+            os.environ['MORPH_TWITTER_CONSUMER_KEY'],
+            os.environ['MORPH_TWITTER_CONSUMER_SECRET']
+        )
+        auth.set_access_token(
+            os.environ['MORPH_TWITTER_ACCESS_TOKEN'],
+            os.environ['MORPH_TWITTER_ACCESS_TOKEN_SECRET']
+        )
+
+        self._tweepy_api = tweepy.API(auth)
+
     def tweet(self):
         character_budget = self.TWEET_LENGTH - self.SHORT_URL_LENGTH - 1
 
@@ -84,8 +97,8 @@ class Tweeter():
             )
 
         tweet = '{} {}'.format(short_desc, self._url)
-        print('Tweeting: `{}`'.format(tweet))
-        raise NotImplementedError("Can't actually tweet yet")
+        logging.info('Posting tweet: `{}`'.format(tweet))
+        self._tweepy_api.update_status(tweet)
 
     @staticmethod
     def replace(description):
