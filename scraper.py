@@ -95,6 +95,9 @@ class Tweeter():
 
         self._description = self.replace(self._description)
 
+        if self._description.startswith('@'):
+            self._description = '.{}'.format(self._description)
+
         if len(self._description) <= character_budget:
             short_desc = self._description
         else:
@@ -116,8 +119,6 @@ class Tweeter():
             "the Information Commissioner",
             "the ICO",
         ]
-
-        # TODO: prepend a . where the tweet starts with @ICOnews
 
         for name in ico_names:
             new = description.replace(name, '@ICOnews')
