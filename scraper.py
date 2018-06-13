@@ -6,8 +6,6 @@ import os
 import sys
 import re
 
-from pprint import pprint
-
 import dataset
 import requests_cache
 import tweepy
@@ -25,7 +23,7 @@ class RequestsWrapper():
 
 
 def main(output_dir=None):
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
     scraper = ICOPenaltyScraper(RequestsWrapper())
 
     db = dataset.connect('sqlite:///data.sqlite')
@@ -38,7 +36,6 @@ def main(output_dir=None):
         ) is not None
 
         row['tweet_sent'] = tweet_sent
-        pprint(row)
 
         table.upsert(row, ['url'])
 
@@ -167,7 +164,8 @@ class ICOPenaltyScraper():
             lambda url: url != self.LIST_URL,
             self.penalty_pages))
 
-        pprint(self.penalty_pages)
+        logging.info('Found {} penalty page URLs')
+        logging.debug('Penalty pages: {}'.format(self.penalty_pages))
 
     def parse_extra_data_from_penalty_page(self, url):
         """
@@ -245,7 +243,7 @@ class ICOPenaltyScraper():
             }.get(type_slug, None)
 
     def _get_as_lxml(self, url):
-        logging.info(url)
+        logging.info('Parsing {}'.format(url))
         response = self.http.get(url)
         response.raise_for_status()
 
