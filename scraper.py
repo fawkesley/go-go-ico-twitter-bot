@@ -73,7 +73,7 @@ class Tweeter():
     # https://developer.twitter.com/en/docs/developer-utilities/configuration/api-reference/get-help-configuration
 
     SHORT_URL_LENGTH = 23
-    TWEET_LENGTH = 280
+    TWEET_LENGTH = 140
 
     def __init__(self, url, description, pdf_url, *args, **kwargs):
         self._url = url
