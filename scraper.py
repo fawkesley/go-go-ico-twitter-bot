@@ -44,6 +44,8 @@ def main(output_dir=None):
 
     db.commit()
 
+    failed_tweets = 0
+
     for untweeted in table.find(tweet_sent=False, order_by='date'):
         logging.info('Tweeting {}'.format(untweeted['url']))
         tweeter = Tweeter(**untweeted)
@@ -52,6 +54,7 @@ def main(output_dir=None):
         try:
             tweeter.tweet()
         except Exception as e:
+            failed_tweets += 1
             logging.exception(e)
             db.rollback()
             continue
@@ -59,6 +62,10 @@ def main(output_dir=None):
             untweeted['tweet_sent'] = True
             table.upsert(untweeted, ['url'])
             db.commit()
+
+    if failed_tweets:
+        logging.error('Failed to sent {} tweets'.format(failed_tweets))
+        sys.exit(1)
 
 
 class Tweeter():
