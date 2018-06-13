@@ -25,7 +25,7 @@ class RequestsWrapper():
 
 def main(output_dir=None):
     logging.basicConfig(level=logging.DEBUG)
-    scraper = ICOPenaltyScraper(output_dir, RequestsWrapper())
+    scraper = ICOPenaltyScraper(RequestsWrapper())
 
     db = dataset.connect('sqlite:///data.sqlite')
     table = db['data']
