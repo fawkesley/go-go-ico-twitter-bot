@@ -10,6 +10,7 @@ from pprint import pprint
 
 import dataset
 import requests_cache
+import tweepy
 import lxml.html
 
 ONE_HOUR = datetime.timedelta(hours=1)
@@ -31,8 +32,102 @@ def main(output_dir=None):
     table = db['data']
 
     for row in scraper.run():
+        tweet_sent = table.find_one(
+            url=row['url'],
+            tweet_sent=True
+        ) is not None
+
+        row['tweet_sent'] = tweet_sent
         pprint(row)
+
         table.upsert(row, ['url'])
+
+    db.commit()
+
+    failed_tweets = 0
+
+    for untweeted in table.find(tweet_sent=False, order_by='date'):
+        logging.info('Tweeting {}'.format(untweeted['url']))
+        tweeter = Tweeter(**untweeted)
+
+        db.begin()
+        try:
+            tweeter.tweet()
+        except Exception as e:
+            failed_tweets += 1
+            logging.exception(e)
+            db.rollback()
+            continue
+        else:
+            untweeted['tweet_sent'] = True
+            table.upsert(untweeted, ['url'])
+            db.commit()
+
+    if failed_tweets:
+        logging.error('Failed to sent {} tweets'.format(failed_tweets))
+        sys.exit(1)
+    else:
+        logging.info('Done.')
+
+
+class Tweeter():
+    # Note: this can change over time, see
+    # https://developer.twitter.com/en/docs/developer-utilities/configuration/api-reference/get-help-configuration
+
+    SHORT_URL_LENGTH = 23
+    TWEET_LENGTH = 140
+
+    def __init__(self, url, description, pdf_url, *args, **kwargs):
+        self._url = url
+        self._description = description
+        self._pdf_url = pdf_url
+
+        auth = tweepy.OAuthHandler(
+            os.environ['MORPH_TWITTER_CONSUMER_KEY'],
+            os.environ['MORPH_TWITTER_CONSUMER_SECRET']
+        )
+        auth.set_access_token(
+            os.environ['MORPH_TWITTER_ACCESS_TOKEN'],
+            os.environ['MORPH_TWITTER_ACCESS_TOKEN_SECRET']
+        )
+
+        self._tweepy_api = tweepy.API(auth)
+
+    def tweet(self):
+        character_budget = self.TWEET_LENGTH - self.SHORT_URL_LENGTH - 1
+
+        self._description = self.replace(self._description)
+
+        if len(self._description) <= character_budget:
+            short_desc = self._description
+        else:
+            short_desc = '{}…'.format(
+                self._description[:character_budget - 1]
+            )
+
+        tweet = '{} {}'.format(short_desc, self._url)
+        logging.info('Posting tweet: `{}`'.format(tweet))
+        self._tweepy_api.update_status(tweet)
+
+    @staticmethod
+    def replace(description):
+        ico_names = [
+            "The Information Commissioner’s Office (ICO)",
+            "The Information Commissioner’s Office",
+            "the Information Commissioner’s Office (ICO)",
+            "the Information Commissioner’s Office",
+            "the Information Commissioner",
+            "the ICO",
+        ]
+
+        # TODO: prepend a . where the tweet starts with @ICOnews
+
+        for name in ico_names:
+            new = description.replace(name, '@ICOnews')
+            if new != description:
+                return new
+
+        return description
 
 
 class ICOPenaltyScraper():

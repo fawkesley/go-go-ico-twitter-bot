@@ -13,4 +13,5 @@ venv/bin/activate: requirements-to-freeze.txt
 .PHONY: run
 run: venv/bin/activate
 	. venv/bin/activate ; \
+	. ./settings.sh ; \
 	python3 scraper.py
