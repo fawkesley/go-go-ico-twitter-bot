@@ -31,8 +31,81 @@ def main(output_dir=None):
     table = db['data']
 
     for row in scraper.run():
+        tweet_sent = table.find_one(
+            url=row['url'],
+            tweet_sent=True
+        ) is not None
+
+        row['tweet_sent'] = tweet_sent
         pprint(row)
+
         table.upsert(row, ['url'])
+
+    db.commit()
+
+    for untweeted in table.find(tweet_sent=False, order_by='date'):
+        print('Tweeting {}'.format(untweeted['url']))
+        tweeter = Tweeter(**untweeted)
+
+        db.begin()
+        try:
+            tweeter.tweet()
+        except Exception:
+            db.rollback()
+            continue
+        else:
+            untweeted['tweet_sent'] = True
+            table.upsert(untweeted, ['url'])
+            db.commit()
+
+
+class Tweeter():
+    # Note: this can change over time, see
+    # https://developer.twitter.com/en/docs/developer-utilities/configuration/api-reference/get-help-configuration
+
+    SHORT_URL_LENGTH = 23
+    TWEET_LENGTH = 280
+
+    def __init__(self, url, description, pdf_url, *args, **kwargs):
+        self._url = url
+        self._description = description
+        self._pdf_url = pdf_url
+
+    def tweet(self):
+        character_budget = self.TWEET_LENGTH - self.SHORT_URL_LENGTH - 1
+
+        self._description = self.replace(self._description)
+
+        if len(self._description) <= character_budget:
+            short_desc = self._description
+        else:
+            short_desc = '{}…'.format(
+                self._description[:character_budget - 1]
+            )
+
+        tweet = '{} {}'.format(short_desc, self._url)
+        print('Tweeting: `{}`'.format(tweet))
+        raise NotImplementedError("Can't actually tweet yet")
+
+    @staticmethod
+    def replace(description):
+        ico_names = [
+            "The Information Commissioner’s Office (ICO)",
+            "The Information Commissioner’s Office",
+            "the Information Commissioner’s Office (ICO)",
+            "the Information Commissioner’s Office",
+            "the Information Commissioner",
+            "the ICO",
+        ]
+
+        # TODO: prepend a . where the tweet starts with @ICOnews
+
+        for name in ico_names:
+            new = description.replace(name, '@ICOnews')
+            if new != description:
+                return new
+
+        return description
 
 
 class ICOPenaltyScraper():
