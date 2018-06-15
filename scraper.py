@@ -60,7 +60,7 @@ def parse_date(iso_string):
 def tweet_untweeted(untweeted, db, table):
     failed_tweets = 0
 
-    tweepy_api = TweepyAPI()
+    tweepy_api = make_tweepy_api()
 
     for untweeted in untweeted:
         logging.info('Tweeting {}'.format(untweeted['url']))
@@ -96,23 +96,24 @@ def scrape_enforcements(table):
         table.upsert(row, ['url'])
 
 
-def TweepyAPI():
-    def __init__(self):
-        auth = tweepy.OAuthHandler(
-            os.environ['MORPH_TWITTER_CONSUMER_KEY'],
-            os.environ['MORPH_TWITTER_CONSUMER_SECRET']
-        )
-        auth.set_access_token(
-            os.environ['MORPH_TWITTER_ACCESS_TOKEN'],
-            os.environ['MORPH_TWITTER_ACCESS_TOKEN_SECRET']
-        )
+def make_tweepy_api():
+    auth = tweepy.OAuthHandler(
+        os.environ['MORPH_TWITTER_CONSUMER_KEY'],
+        os.environ['MORPH_TWITTER_CONSUMER_SECRET']
+    )
+    auth.set_access_token(
+        os.environ['MORPH_TWITTER_ACCESS_TOKEN'],
+        os.environ['MORPH_TWITTER_ACCESS_TOKEN_SECRET']
+    )
 
-        self._tweepy_api = tweepy.API(auth)
+    tweepy_api = tweepy.API(auth)
 
-        if self._tweepy_api.verify_credentials():
-            logging.info('Twitter credentials verified')
-        else:
-            raise RuntimeError('Twitter credentials invalid')
+    if tweepy_api.verify_credentials():
+        logging.info('Twitter credentials verified')
+    else:
+        raise RuntimeError('Twitter credentials invalid')
+
+    return tweepy_api
 
 
 class Tweeter():
