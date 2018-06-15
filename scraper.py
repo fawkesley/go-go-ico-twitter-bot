@@ -26,26 +26,32 @@ def main(output_dir=None):
     logging.basicConfig(level=logging.INFO)
 
     logging.info(os.environ['MORPH_TEST'])
-    scraper = ICOPenaltyScraper(RequestsWrapper())
 
     db = dataset.connect('sqlite:///data.sqlite')
     table = db['data']
 
-    for row in scraper.run():
-        tweet_sent = table.find_one(
-            url=row['url'],
-            tweet_sent=True
-        ) is not None
-
-        row['tweet_sent'] = tweet_sent
-
-        table.upsert(row, ['url'])
+    scrape_enforcements(table)
 
     db.commit()
 
+    untweeted = get_untweeted(table)
+    failed_tweets = tweet_untweeted(untweeted, db, table)
+
+    if failed_tweets:
+        logging.error('Failed to sent {} tweets'.format(failed_tweets))
+        sys.exit(1)
+    else:
+        logging.info('Done.')
+
+
+def get_untweeted(table):
+    return table.find(tweet_sent=False, order_by='date')
+
+
+def tweet_untweeted(untweeted, db, table):
     failed_tweets = 0
 
-    for untweeted in table.find(tweet_sent=False, order_by='date'):
+    for untweeted in untweeted:
         logging.info('Tweeting {}'.format(untweeted['url']))
         tweeter = Tweeter(**untweeted)
 
@@ -62,11 +68,21 @@ def main(output_dir=None):
             table.upsert(untweeted, ['url'])
             db.commit()
 
-    if failed_tweets:
-        logging.error('Failed to sent {} tweets'.format(failed_tweets))
-        sys.exit(1)
-    else:
-        logging.info('Done.')
+    return failed_tweets
+
+
+def scrape_enforcements(table):
+    scraper = ICOPenaltyScraper(RequestsWrapper())
+
+    for row in scraper.run():
+        tweet_sent = table.find_one(
+            url=row['url'],
+            tweet_sent=True
+        ) is not None
+
+        row['tweet_sent'] = tweet_sent
+
+        table.upsert(row, ['url'])
 
 
 class Tweeter():
