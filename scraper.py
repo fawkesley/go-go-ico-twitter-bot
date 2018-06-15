@@ -45,7 +45,16 @@ def main(output_dir=None):
 
 
 def get_untweeted(table):
-    return table.find(tweet_sent=False, order_by='date')
+    two_weeks_ago = datetime.date.today() - datetime.timedelta(days=14)
+
+    for row in table.find(tweet_sent=False, order_by='date'):
+
+        if parse_date(row['date']) >= two_weeks_ago:
+            yield row
+
+
+def parse_date(iso_string):
+    return datetime.date(*[int(part) for part in iso_string.split('-')])
 
 
 def tweet_untweeted(untweeted, db, table):
