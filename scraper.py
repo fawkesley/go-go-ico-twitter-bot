@@ -165,7 +165,9 @@ class ICOPenaltyScraper():
             lambda url: url != self.LIST_URL,
             self.penalty_pages))
 
-        logging.info('Found {} penalty page URLs')
+        logging.info('Found {} penalty page URLs'.format(
+            len(self.penalty_pages)
+        ))
         logging.debug('Penalty pages: {}'.format(self.penalty_pages))
 
     def parse_extra_data_from_penalty_page(self, url):
