@@ -24,6 +24,8 @@ class RequestsWrapper():
 
 def main(output_dir=None):
     logging.basicConfig(level=logging.INFO)
+
+    logging.info(os.environ['MORPH_TEST'])
     scraper = ICOPenaltyScraper(RequestsWrapper())
 
     db = dataset.connect('sqlite:///data.sqlite')
