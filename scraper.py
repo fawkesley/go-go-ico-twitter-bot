@@ -60,9 +60,11 @@ def parse_date(iso_string):
 def tweet_untweeted(untweeted, db, table):
     failed_tweets = 0
 
+    tweepy_api = TweepyAPI()
+
     for untweeted in untweeted:
         logging.info('Tweeting {}'.format(untweeted['url']))
-        tweeter = Tweeter(**untweeted)
+        tweeter = Tweeter(tweepy_api, **untweeted)
 
         db.begin()
         try:
@@ -94,18 +96,8 @@ def scrape_enforcements(table):
         table.upsert(row, ['url'])
 
 
-class Tweeter():
-    # Note: this can change over time, see
-    # https://developer.twitter.com/en/docs/developer-utilities/configuration/api-reference/get-help-configuration
-
-    SHORT_URL_LENGTH = 23
-    TWEET_LENGTH = 140
-
-    def __init__(self, url, description, pdf_url, *args, **kwargs):
-        self._url = url
-        self._description = description
-        self._pdf_url = pdf_url
-
+def TweepyAPI():
+    def __init__(self):
         auth = tweepy.OAuthHandler(
             os.environ['MORPH_TWITTER_CONSUMER_KEY'],
             os.environ['MORPH_TWITTER_CONSUMER_SECRET']
@@ -116,6 +108,25 @@ class Tweeter():
         )
 
         self._tweepy_api = tweepy.API(auth)
+
+        if self._tweepy_api.verify_credentials():
+            logging.info('Twitter credentials verified')
+        else:
+            raise RuntimeError('Twitter credentials invalid')
+
+
+class Tweeter():
+    # Note: this can change over time, see
+    # https://developer.twitter.com/en/docs/developer-utilities/configuration/api-reference/get-help-configuration
+
+    SHORT_URL_LENGTH = 23
+    TWEET_LENGTH = 140
+
+    def __init__(self, tweepy_api, url, description, pdf_url, *args, **kwargs):
+        self._url = url
+        self._description = description
+        self._pdf_url = pdf_url
+        self._tweepy_api = tweepy_api
 
     def tweet(self):
         character_budget = self.TWEET_LENGTH - self.SHORT_URL_LENGTH - 1
