@@ -13,6 +13,13 @@ import lxml.html
 
 ONE_HOUR = datetime.timedelta(hours=1)
 
+TWITTER_CONSUMER_KEY = os.environ['MORPH_TWITTER_CONSUMER_KEY'],
+TWITTER_CONSUMER_SECRET = os.environ['MORPH_TWITTER_CONSUMER_SECRET']
+TWITTER_ACCESS_TOKEN = os.environ['MORPH_TWITTER_ACCESS_TOKEN']
+TWITTER_ACCESS_TOKEN_SECRET = os.environ['MORPH_TWITTER_ACCESS_TOKEN_SECRET']
+
+DEBUG = os.environ.get('MORPH_DEBUG', 'false') in ('1', 'true', 'yes')
+
 
 class RequestsWrapper():
     def __init__(self):
@@ -23,9 +30,7 @@ class RequestsWrapper():
 
 
 def main(output_dir=None):
-    logging.basicConfig(level=logging.INFO)
-
-    logging.info(os.environ['MORPH_TEST'])
+    logging.basicConfig(level=logging.DEBUG if DEBUG else logging.INFO)
 
     db = dataset.connect('sqlite:///data.sqlite')
     table = db['data']
@@ -97,13 +102,23 @@ def scrape_enforcements(table):
 
 
 def make_tweepy_api():
+    logging.debug(
+        'consumer_key: `{}`, consumer_secret: `{}`, '
+        'access_token: `{}`, access_token_secret: `{}`'.format(
+            TWITTER_CONSUMER_KEY,
+            TWITTER_CONSUMER_SECRET,
+            TWITTER_ACCESS_TOKEN,
+            TWITTER_ACCESS_TOKEN_SECRET
+        )
+    )
+
     auth = tweepy.OAuthHandler(
-        os.environ['MORPH_TWITTER_CONSUMER_KEY'],
-        os.environ['MORPH_TWITTER_CONSUMER_SECRET']
+        TWITTER_CONSUMER_KEY,
+        TWITTER_CONSUMER_SECRET
     )
     auth.set_access_token(
-        os.environ['MORPH_TWITTER_ACCESS_TOKEN'],
-        os.environ['MORPH_TWITTER_ACCESS_TOKEN_SECRET']
+        TWITTER_ACCESS_TOKEN,
+        TWITTER_ACCESS_TOKEN_SECRET
     )
 
     tweepy_api = tweepy.API(auth)
