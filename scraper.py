@@ -230,6 +230,8 @@ class ICOPenaltyScraper():
         """
         root = self._get_as_lxml(url)
         pdf_url = self._parse_pdf_url(root, url)
+        description = self._parse_description(root)
+        penalty_amount = self._parse_penalty_amount(description)
 
         return {
             'url': url,
@@ -238,7 +240,8 @@ class ICOPenaltyScraper():
             'type': self._parse_type(pdf_url),
             'date': self._parse_date(root),
             'title': self._parse_title(root),
-            'description': self._parse_description(root)
+            'description': description,
+            'penalty_amount': penalty_amount,
         }
 
     def _parse_pdf_url(self, lxml_root, url):
@@ -265,6 +268,23 @@ class ICOPenaltyScraper():
             return ps[0].text_content().strip()
         else:
             raise RuntimeError(len(ps))
+
+    def _parse_penalty_amount(self, description):
+        if description is None:
+            return None
+
+        amounts = re.findall(r'£[0-9,]+\b', description)
+
+        if len(amounts) == 1:
+            return amounts[0]
+
+        elif len(amounts) == 0:
+            logging.info('No penalty amount found in `{}`'.format(description))
+
+        elif len(amounts) > 1:
+            logging.warning('{} penalty amount found in `{}`'.format(
+                len(amounts), description)
+            )
 
     def _parse_date(self, lxml_root):
         def parse(date_string):
