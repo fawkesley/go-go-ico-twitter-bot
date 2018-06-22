@@ -4,6 +4,7 @@ import datetime
 import logging
 import os
 import sys
+import tempfile
 import re
 
 import dataset
@@ -11,12 +12,24 @@ import requests_cache
 import tweepy
 import lxml.html
 
+from image_creator import ImageCreator
+
 ONE_HOUR = datetime.timedelta(hours=1)
 
 TWITTER_CONSUMER_KEY = os.environ['MORPH_TWITTER_CONSUMER_KEY'].strip()
 TWITTER_CONSUMER_SECRET = os.environ['MORPH_TWITTER_CONSUMER_SECRET'].strip()
 TWITTER_ACCESS_TOKEN = os.environ['MORPH_TWITTER_ACCESS_TOKEN'].strip()
 TWITTER_ACCESS_TOKEN_SECRET = os.environ['MORPH_TWITTER_ACCESS_TOKEN_SECRET'].strip()
+
+ICO_NAMES = [
+    "The Information Commissioner’s Office (ICO)",
+    "The Information Commissioner’s Office",
+    "the Information Commissioner’s Office (ICO)",
+    "the Information Commissioner’s Office",
+    "the Information Commissioner",
+    "the ico",
+    "the ICO",
+]
 
 DEBUG = os.environ.get('MORPH_DEBUG', 'false') in ('1', 'true', 'yes')
 
@@ -55,6 +68,7 @@ def get_untweeted(table):
     for row in table.find(tweet_sent=False, order_by='date'):
 
         if parse_date(row['date']) >= two_weeks_ago:
+            row['date'] = parse_date(row['date'])
             yield row
 
 
@@ -123,10 +137,15 @@ def make_tweepy_api():
 
     tweepy_api = tweepy.API(auth)
 
-    if tweepy_api.verify_credentials():
-        logging.info('Twitter credentials verified')
+    try:
+        tweepy_api.verify_credentials()
+    except Exception as e:
+        logging.exception(e)
+
+        pass
+        # raise RuntimeError('Twitter credentials invalid')
     else:
-        raise RuntimeError('Twitter credentials invalid')
+        logging.info('Twitter credentials verified')
 
     return tweepy_api
 
@@ -138,49 +157,80 @@ class Tweeter():
     SHORT_URL_LENGTH = 23
     TWEET_LENGTH = 140
 
-    def __init__(self, tweepy_api, url, description, pdf_url, *args, **kwargs):
+    def __init__(self, tweepy_api, url, title, description,
+                 abbreviated_description, pdf_url, penalty_amount,
+                 date, *args, **kwargs):
         self._url = url
+        self._organisation = title
         self._description = description
+        self._abbreviated_description = abbreviated_description
         self._pdf_url = pdf_url
+        self._penalty_amount = penalty_amount
+        self._date = date
         self._tweepy_api = tweepy_api
 
     def tweet(self):
-        character_budget = self.TWEET_LENGTH - self.SHORT_URL_LENGTH - 1
+        tweet = self.make_tweet(self._description, self._url)
 
-        self._description = self.replace(self._description)
+        creator = ImageCreator(
+            self._organisation,
+            self._penalty_amount,
+            self._abbreviated_description,
+            self._date,
+        )
+        import time
 
-        if self._description.startswith('@'):
-            self._description = '.{}'.format(self._description)
+        if creator.success:
+            with tempfile.NamedTemporaryFile(suffix='.png') as f:
+                creator.save(f.name)
+                logging.info('Posting tweet & image in 60s: `{}` '
+                             'img: {}'.format(tweet, f.name))
+                time.sleep(60)
 
-        if len(self._description) <= character_budget:
-            short_desc = self._description
+                # http://docs.tweepy.org/en/v3.5.0/api.html#API.update_with_media
+                # https://developer.twitter.com/en/docs/tweets/post-and-engage/api-reference/post-statuses-update
+
+                self._tweepy_api.update_with_media(f.name, tweet)
         else:
-            short_desc = '{}…'.format(
-                self._description[:character_budget - 1]
-            )
-
-        tweet = '{} {}'.format(short_desc, self._url)
-        logging.info('Posting tweet: `{}`'.format(tweet))
-        self._tweepy_api.update_status(tweet)
+            logging.info('Posting in 60s: `{}`'.format(tweet))
+            time.sleep(60)
+            self._tweepy_api.update_status(tweet)
 
     @staticmethod
-    def replace(description):
-        ico_names = [
-            "The Information Commissioner’s Office (ICO)",
-            "The Information Commissioner’s Office",
-            "the Information Commissioner’s Office (ICO)",
-            "the Information Commissioner’s Office",
-            "the Information Commissioner",
-            "the ICO",
-        ]
+    def make_tweet(description, url):
+        character_budget = Tweeter.TWEET_LENGTH - Tweeter.SHORT_URL_LENGTH - 1
 
-        for name in ico_names:
-            new = description.replace(name, '@ICOnews')
-            if new != description:
-                return new
+        description = replace(
+            description,
+            ICO_NAMES,
+            '@ICOnews'
+        )
 
-        return description
+        if description.startswith('@'):
+            description = '.{}'.format(description)
 
+        if len(description) <= character_budget:
+            short_desc = description
+        else:
+            short_desc = '{}…'.format(
+                description[:character_budget - 1]
+            )
+
+        tweet = '{} {}'.format(short_desc, url)
+        return tweet
+
+
+def replace(long_text, replace_names, with_text):
+    for name in replace_names:
+        new = long_text.replace(name, with_text)
+        if new != long_text:
+            return new
+
+    return long_text
+
+
+def capitalize(string):
+    return '{}{}'.format(string[0].upper(), string[1:])
 
 class ICOPenaltyScraper():
     BASE_URL = 'https://ico.org.uk'
@@ -232,6 +282,7 @@ class ICOPenaltyScraper():
         pdf_url = self._parse_pdf_url(root, url)
         description = self._parse_description(root)
         penalty_amount = self._parse_penalty_amount(description)
+        abbreviated = self._abbreviate_description(description)
 
         return {
             'url': url,
@@ -241,6 +292,7 @@ class ICOPenaltyScraper():
             'date': self._parse_date(root),
             'title': self._parse_title(root),
             'description': description,
+            'abbreviated_description': abbreviated,
             'penalty_amount': penalty_amount,
         }
 
@@ -285,6 +337,60 @@ class ICOPenaltyScraper():
             logging.warning('{} penalty amount found in `{}`'.format(
                 len(amounts), description)
             )
+
+    @staticmethod
+    def _abbreviate_description(description):
+        if description is None:
+            return None
+
+        description = ICOPenaltyScraper._drop_initial_cruft(description)
+
+        description = replace(
+            description,
+            ICO_NAMES,
+            'the ICO'
+        )
+
+        description = replace(
+            description,
+            [
+                'Telephone Preference Service (TPS)',
+                'Telephone Preference Service',
+            ],
+            'TPS'
+        )
+
+        description = replace(
+            description,
+            [
+                'Privacy and Electronic Communications (EC Directive) Regulations 2003',  # noqa
+            ],
+            'PECR'
+        )
+        return capitalize(description)
+
+    @staticmethod
+    def _drop_initial_cruft(description):
+        """
+        `Blah blah has been fined for...` -> `Fined for...`
+        """
+
+        phrases = [
+            ('has been fined', 'fined'),
+            ('has been prosecuted', 'prosecuted'),
+        ]
+
+        for phrase, replacement in phrases:
+            phrase_position = description.find(phrase, 0, 100)
+
+            if phrase_position != -1:
+                remainder = description[phrase_position + len(phrase):]
+                print('`{}` found at {} in `{}`, giving `{}`'.format(
+                    phrase, phrase_position, description, remainder))
+
+                return '{}{}'.format(replacement, remainder)
+
+        return description
 
     def _parse_date(self, lxml_root):
         def parse(date_string):
