@@ -55,6 +55,7 @@ def get_untweeted(table):
     for row in table.find(tweet_sent=False, order_by='date'):
 
         if parse_date(row['date']) >= two_weeks_ago:
+            row['date'] = parse_date(row['date'])
             yield row
 
 
@@ -138,10 +139,15 @@ class Tweeter():
     SHORT_URL_LENGTH = 23
     TWEET_LENGTH = 140
 
-    def __init__(self, tweepy_api, url, description, pdf_url, *args, **kwargs):
+    def __init__(self, tweepy_api, url, title, description,
+                 pdf_url, penalty_amount,
+                 date, *args, **kwargs):
         self._url = url
+        self._organisation = title
         self._description = description
         self._pdf_url = pdf_url
+        self._penalty_amount = penalty_amount
+        self._date = date
         self._tweepy_api = tweepy_api
 
     def tweet(self):
