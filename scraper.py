@@ -4,12 +4,16 @@ import datetime
 import logging
 import os
 import sys
+import tempfile
+import time
 import re
 
 import dataset
 import requests_cache
 import tweepy
 import lxml.html
+
+from image_creator import ImageCreator
 
 ONE_HOUR = datetime.timedelta(hours=1)
 
@@ -164,9 +168,28 @@ class Tweeter():
     def tweet(self):
         tweet = self.make_tweet(self._description, self._url)
 
+        creator = ImageCreator(
+            self._organisation,
+            self._penalty_amount,
+            self._abbreviated_description,
+            self._date,
+        )
 
+        if creator.success:
+            with tempfile.NamedTemporaryFile(suffix='.png') as f:
+                creator.save(f.name)
+                logging.info('Posting tweet & image in 30s: `{}` '
+                             'img: {}'.format(tweet, f.name))
+                time.sleep(30)
 
-        self._tweepy_api.update_status(tweet)
+                # http://docs.tweepy.org/en/v3.5.0/api.html#API.update_with_media
+                # https://developer.twitter.com/en/docs/tweets/post-and-engage/api-reference/post-statuses-update
+
+                self._tweepy_api.update_with_media(f.name, tweet)
+        else:
+            logging.info('Posting in 30s: `{}`'.format(tweet))
+            time.sleep(30)
+            self._tweepy_api.update_status(tweet)
 
     @staticmethod
     def make_tweet(description, url):
