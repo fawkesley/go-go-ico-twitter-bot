@@ -3,4 +3,5 @@ data.sqlite
 cache.sqlite
 venv/
 settings.sh
+__pycache__/
 img/
