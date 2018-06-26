@@ -150,11 +150,12 @@ class Tweeter():
     TWEET_LENGTH = 140
 
     def __init__(self, tweepy_api, url, title, description,
-                 pdf_url, penalty_amount,
+                 abbreviated_description, pdf_url, penalty_amount,
                  date, *args, **kwargs):
         self._url = url
         self._organisation = title
         self._description = description
+        self._abbreviated_description = abbreviated_description
         self._pdf_url = pdf_url
         self._penalty_amount = penalty_amount
         self._date = date
@@ -199,6 +200,9 @@ def replace(long_text, replace_names, with_text):
 
     return long_text
 
+
+def capitalize(string):
+    return '{}{}'.format(string[0].upper(), string[1:])
 
 
 class ICOPenaltyScraper():
@@ -251,6 +255,7 @@ class ICOPenaltyScraper():
         pdf_url = self._parse_pdf_url(root, url)
         description = self._parse_description(root)
         penalty_amount = self._parse_penalty_amount(description)
+        abbreviated = self._abbreviate_description(description)
 
         return {
             'url': url,
@@ -260,6 +265,7 @@ class ICOPenaltyScraper():
             'date': self._parse_date(root),
             'title': self._parse_title(root),
             'description': description,
+            'abbreviated_description': abbreviated,
             'penalty_amount': penalty_amount,
         }
 
@@ -304,6 +310,60 @@ class ICOPenaltyScraper():
             logging.warning('{} penalty amount found in `{}`'.format(
                 len(amounts), description)
             )
+
+    @staticmethod
+    def _abbreviate_description(description):
+        if description is None:
+            return None
+
+        description = ICOPenaltyScraper._drop_initial_cruft(description)
+
+        description = replace(
+            description,
+            ICO_NAMES,
+            'the ICO'
+        )
+
+        description = replace(
+            description,
+            [
+                'Telephone Preference Service (TPS)',
+                'Telephone Preference Service',
+            ],
+            'TPS'
+        )
+
+        description = replace(
+            description,
+            [
+                'Privacy and Electronic Communications (EC Directive) Regulations 2003',  # noqa
+            ],
+            'PECR'
+        )
+        return capitalize(description)
+
+    @staticmethod
+    def _drop_initial_cruft(description):
+        """
+        `Blah blah has been fined for...` -> `Fined for...`
+        """
+
+        phrases = [
+            ('has been fined', 'fined'),
+            ('has been prosecuted', 'prosecuted'),
+        ]
+
+        for phrase, replacement in phrases:
+            phrase_position = description.find(phrase, 0, 100)
+
+            if phrase_position != -1:
+                remainder = description[phrase_position + len(phrase):]
+                print('`{}` found at {} in `{}`, giving `{}`'.format(
+                    phrase, phrase_position, description, remainder))
+
+                return '{}{}'.format(replacement, remainder)
+
+        return description
 
     def _parse_date(self, lxml_root):
         def parse(date_string):
