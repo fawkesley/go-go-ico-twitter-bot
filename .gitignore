@@ -3,3 +3,4 @@ data.sqlite
 cache.sqlite
 venv/
 settings.sh
+img/
