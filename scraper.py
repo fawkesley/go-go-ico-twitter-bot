@@ -138,10 +138,14 @@ def make_tweepy_api():
 
     tweepy_api = tweepy.API(auth)
 
-    if tweepy_api.verify_credentials():
-        logging.info('Twitter credentials verified')
+    try:
+        tweepy_api.verify_credentials()  # will raise
+    except Exception as e:
+        logging.exception(e)
+        raise
+
     else:
-        raise RuntimeError('Twitter credentials invalid')
+        logging.info('Twitter credentials verified')
 
     return tweepy_api
 
