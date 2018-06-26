@@ -18,6 +18,16 @@ TWITTER_CONSUMER_SECRET = os.environ['MORPH_TWITTER_CONSUMER_SECRET'].strip()
 TWITTER_ACCESS_TOKEN = os.environ['MORPH_TWITTER_ACCESS_TOKEN'].strip()
 TWITTER_ACCESS_TOKEN_SECRET = os.environ['MORPH_TWITTER_ACCESS_TOKEN_SECRET'].strip()
 
+ICO_NAMES = [
+    "The Information Commissioner’s Office (ICO)",
+    "The Information Commissioner’s Office",
+    "the Information Commissioner’s Office (ICO)",
+    "the Information Commissioner’s Office",
+    "the Information Commissioner",
+    "the ico",
+    "the ICO",
+]
+
 DEBUG = os.environ.get('MORPH_DEBUG', 'false') in ('1', 'true', 'yes')
 
 
