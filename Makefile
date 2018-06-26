@@ -15,3 +15,10 @@ run: venv/bin/activate
 	. venv/bin/activate ; \
 	. ./settings.sh ; \
 	python3 scraper.py
+
+.PHONY: images
+images: venv/bin/activate
+	@mkdir -p img/
+	. venv/bin/activate ; \
+	. ./settings.sh ; \
+	python3 image_creator.py
