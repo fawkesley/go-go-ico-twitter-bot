@@ -161,41 +161,44 @@ class Tweeter():
         self._tweepy_api = tweepy_api
 
     def tweet(self):
-        character_budget = self.TWEET_LENGTH - self.SHORT_URL_LENGTH - 1
+        tweet = self.make_tweet(self._description, self._url)
 
-        self._description = self.replace(self._description)
 
-        if self._description.startswith('@'):
-            self._description = '.{}'.format(self._description)
 
-        if len(self._description) <= character_budget:
-            short_desc = self._description
-        else:
-            short_desc = '{}…'.format(
-                self._description[:character_budget - 1]
-            )
-
-        tweet = '{} {}'.format(short_desc, self._url)
-        logging.info('Posting tweet: `{}`'.format(tweet))
         self._tweepy_api.update_status(tweet)
 
     @staticmethod
-    def replace(description):
-        ico_names = [
-            "The Information Commissioner’s Office (ICO)",
-            "The Information Commissioner’s Office",
-            "the Information Commissioner’s Office (ICO)",
-            "the Information Commissioner’s Office",
-            "the Information Commissioner",
-            "the ICO",
-        ]
+    def make_tweet(description, url):
+        character_budget = Tweeter.TWEET_LENGTH - Tweeter.SHORT_URL_LENGTH - 1
 
-        for name in ico_names:
-            new = description.replace(name, '@ICOnews')
-            if new != description:
-                return new
+        description = replace(
+            description,
+            ICO_NAMES,
+            '@ICOnews'
+        )
 
-        return description
+        if description.startswith('@'):
+            description = '.{}'.format(description)
+
+        if len(description) <= character_budget:
+            short_desc = description
+        else:
+            short_desc = '{}…'.format(
+                description[:character_budget - 1]
+            )
+
+        tweet = '{} {}'.format(short_desc, url)
+        return tweet
+
+
+def replace(long_text, replace_names, with_text):
+    for name in replace_names:
+        new = long_text.replace(name, with_text)
+        if new != long_text:
+            return new
+
+    return long_text
+
 
 
 class ICOPenaltyScraper():
