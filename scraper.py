@@ -8,6 +8,8 @@ import tempfile
 import time
 import re
 
+from collections import defaultdict
+
 import dataset
 import requests_cache
 import tweepy
@@ -53,7 +55,7 @@ def main(output_dir=None):
 
     db.commit()
 
-    untweeted = get_untweeted(table)
+    untweeted = deduplicate(get_untweeted(table))
     failed_tweets = tweet_untweeted(untweeted, db, table)
 
     if failed_tweets:
@@ -71,6 +73,42 @@ def get_untweeted(table):
         if parse_date(row['date']) >= two_weeks_ago:
             row['date'] = parse_date(row['date'])
             yield row
+
+
+def deduplicate(rows):
+    """
+    Sometimes the ICO issues two actions, e.g. a monetary penalty (a fine)
+    and an enforcement notice. These have different URLs but very similar
+    content.
+
+    It looks better if we only tweet one of these. The ones with penalty
+    amounts look better, so prefer those.
+
+    Yield `rows` with any duplicates filtered out.
+
+    We identify duplicates as having identical `title` (organisation) + `date`.
+    """
+
+    def choose_row_with_penalty_notice(list_of_rows):
+        """
+        Sort by whether the row has a `penalty_amount` and take the first.
+        """
+        return sorted(
+            list_of_rows,
+            key=lambda row: 1 if row['penalty_amount'] else 0,
+            reverse=True
+        )[0]
+
+    grouped_rows = defaultdict(list)  # (title, date) -> [row, row]
+
+    for row in rows:
+        grouped_rows[(row['title'], row['date'])].append(row)
+
+    for _, list_of_rows in grouped_rows.items():
+        if len(list_of_rows) == 1:
+            yield row
+        elif len(list_of_rows) > 1:
+            yield choose_row_with_penalty_notice(list_of_rows)
 
 
 def parse_date(iso_string):
