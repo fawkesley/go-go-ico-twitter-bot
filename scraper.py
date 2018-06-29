@@ -316,6 +316,10 @@ class ICOPenaltyScraper():
 
     def _parse_description(self, lxml_root):
         ps = lxml_root.xpath(self.XPATH_DESCRIPTION)
+        return ' '.join(
+            [p.text_content().strip() for p in ps]
+        )
+
         if len(ps) >= 1:
             return ps[0].text_content().strip()
         else:
