@@ -13,7 +13,7 @@ Pillow==5.1.0
 PySocks==1.6.8
 python-dateutil==2.7.3
 python-editor==1.0.3
-requests==2.19.0
+requests==2.20.0
 requests-cache==0.4.13
 requests-oauthlib==1.0.0
 six==1.11.0
