@@ -1,6 +1,6 @@
 alembic==1.5.8
 banal==1.0.6
-certifi==2020.12.5
+certifi==2022.12.7
 chardet==4.0.0
 dataset==1.4.5
 greenlet==1.0.0
